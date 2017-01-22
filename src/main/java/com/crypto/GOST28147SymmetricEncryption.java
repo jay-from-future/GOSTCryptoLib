@@ -158,6 +158,8 @@ public class GOST28147SymmetricEncryption {
     }
 
     private int encryptBlock(byte[] in, int inOff, byte[] out, int outOff) {
+        in = extendIfRequired(in, inOff);
+        out = extendIfRequired(out, outOff);
         checkBlock(in, inOff, out, outOff);
         GOST28147Func(workingKey, in, inOff, out, outOff, true);
         return BLOCK_SIZE;
@@ -168,9 +170,20 @@ public class GOST28147SymmetricEncryption {
                              byte[] out,
                              int outOff) {
 
+        in = extendIfRequired(in, inOff);
+        out = extendIfRequired(out, outOff);
         checkBlock(in, inOff, out, outOff);
         GOST28147Func(workingKey, in, inOff, out, outOff, false);
         return BLOCK_SIZE;
+    }
+
+    private byte[] extendIfRequired(byte[] in, int inOff) {
+        if ((inOff + BLOCK_SIZE) > in.length) {
+            byte[] newIn = new byte[inOff + BLOCK_SIZE];
+            System.arraycopy(in, 0, newIn, 0, in.length);
+            return newIn;
+        }
+        return in;
     }
 
     private void checkBlock(byte[] in, int inOff, byte[] out, int outOff) {
@@ -179,11 +192,11 @@ public class GOST28147SymmetricEncryption {
         }
 
         if ((inOff + BLOCK_SIZE) > in.length) {
-            throw new IllegalArgumentException("input buffer too short");
+            throw new IllegalArgumentException("input buffer too short. Required: " + (inOff + BLOCK_SIZE) + " Actual: " + in.length);
         }
 
         if ((outOff + BLOCK_SIZE) > out.length) {
-            throw new IllegalArgumentException("output buffer too short");
+            throw new IllegalArgumentException("output buffer too short. Required: " + (outOff + BLOCK_SIZE) + " Actual: " + out.length);
         }
 
 
