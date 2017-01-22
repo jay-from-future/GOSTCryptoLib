@@ -1,15 +1,16 @@
 package com.crypto;
 
-import junit.framework.TestCase;
 import org.bouncycastle.math.ec.ECPoint;
 import org.junit.Assert;
+import org.junit.Before;
+import org.junit.Test;
 
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.math.BigInteger;
 
-public class GOST3410DigitalSignatureTest extends TestCase {
+public class GOST3410DigitalSignatureTest {
 
     private static final String SIGNATURE_IS_NULL = "Signature is NULL";
     private static final String SIGNATURE_IS_NOT_VALID = "Signature is not valid";
@@ -17,6 +18,7 @@ public class GOST3410DigitalSignatureTest extends TestCase {
     private File testFile;
     private GOST3410DigitalSignature edsGOSTUtil;
 
+    @Before
     public void setUp() throws Exception {
         edsGOSTUtil = new GOST3410DigitalSignature();
         initTestFile();
@@ -32,6 +34,7 @@ public class GOST3410DigitalSignatureTest extends TestCase {
         outputStream.close();
     }
 
+    @Test
     public void testGenerateAndSignatureForFile() throws Exception {
         BigInteger privateKey = edsGOSTUtil.generatePrivateKey();
         ECPoint publicKey = edsGOSTUtil.generatePublicKey(privateKey);
@@ -43,6 +46,7 @@ public class GOST3410DigitalSignatureTest extends TestCase {
         Assert.assertTrue(SIGNATURE_IS_NOT_VALID, verification);
     }
 
+    @Test
     public void testGenerateAndVerifySignature() throws Exception {
         BigInteger privateKey = edsGOSTUtil.generatePrivateKey();
         ECPoint publicKey = edsGOSTUtil.generatePublicKey(privateKey);
