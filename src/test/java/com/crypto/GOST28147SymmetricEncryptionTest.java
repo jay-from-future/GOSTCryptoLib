@@ -3,9 +3,10 @@ package com.crypto;
 import org.junit.Before;
 import org.junit.Test;
 
+import javax.crypto.SecretKey;
 import java.util.Arrays;
 
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 
 public class GOST28147SymmetricEncryptionTest {
 
@@ -34,5 +35,13 @@ public class GOST28147SymmetricEncryptionTest {
         byte[] out = new byte[ENCRYPTED_MSG.length];
         gost28147SymmetricEncryption.decryptMessage(ENCRYPTED_MSG, out);
         assertTrue(Arrays.equals(SOURCE_MSG, out));
+    }
+
+    @Test
+    public void testGenerateKey() throws Exception {
+        SecretKey secretKey = GOST28147SymmetricEncryption.generateKey(256);
+        assertEquals(GOST28147SymmetricEncryption.GOST_28147, secretKey.getAlgorithm());
+        assertNotNull(secretKey.getEncoded());
+        assertEquals(32, secretKey.getEncoded().length);
     }
 }

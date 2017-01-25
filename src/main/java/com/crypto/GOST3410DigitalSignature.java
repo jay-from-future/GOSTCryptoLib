@@ -2,6 +2,7 @@ package com.crypto;
 
 import org.apache.log4j.Logger;
 import org.bouncycastle.jce.ECNamedCurveTable;
+import org.bouncycastle.jce.interfaces.ECPublicKey;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.jce.spec.ECParameterSpec;
 import org.bouncycastle.math.ec.ECCurve;
@@ -11,8 +12,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.math.BigInteger;
-import java.security.SecureRandom;
-import java.security.Security;
+import java.security.*;
 import java.util.Arrays;
 
 /**
@@ -24,15 +24,15 @@ public class GOST3410DigitalSignature {
 
     private static final Logger LOG = Logger.getLogger(GOST3410DigitalSignature.class.getName());
 
-    private final String CURVE_P_256 = "P-256";
+    public static final String GOST_3410 = "GOST3410";
 
-    private ECParameterSpec ecSpec;
-    private ECCurve curve;
+    private static final String CURVE_P_256 = "P-256";
 
-    public GOST3410DigitalSignature() {
+    private static ECParameterSpec ecSpec = ECNamedCurveTable.getParameterSpec(CURVE_P_256);
+    private static ECCurve curve = ecSpec.getCurve();
+
+    static {
         Security.addProvider(new BouncyCastleProvider());
-        ecSpec = ECNamedCurveTable.getParameterSpec(CURVE_P_256);
-        curve = ecSpec.getCurve();
     }
 
     /**
@@ -42,7 +42,7 @@ public class GOST3410DigitalSignature {
      * @return Сгенерированная подпись.
      * @throws IOException Не удается открыть для чтения входной файл.
      */
-    public String generateSignatureForFile(File file, BigInteger d) throws IOException {
+    public static byte[] generateSignatureForFile(File file, PrivateKey privateKey) throws IOException, NoSuchAlgorithmException {
         LOG.debug("+generateSignatureForFile");
         String fileAbsolutePath = file.getAbsolutePath();
         LOG.debug("Input file : " + fileAbsolutePath);
@@ -54,13 +54,13 @@ public class GOST3410DigitalSignature {
             LOG.error(errorMsg);
             throw new IOException(errorMsg);
         }
-        String signature = generateSignature(msg, d);
-        LOG.debug("Signature : " + signature);
+        byte[] signature = generateSignature(msg, privateKey);
+        LOG.debug("Signature : " + HexUtils.toHexString(signature));
         LOG.debug("-generateSignatureForFile");
         return signature;
     }
 
-    public boolean verifySignatureForFile(File file, String signature, ECPoint Q) throws IOException {
+    public static boolean verifySignatureForFile(File file, byte[] signature, PublicKey publicKey) throws IOException, NoSuchAlgorithmException {
         LOG.debug("+verifySignatureForFile");
         String fileAbsolutePath = file.getAbsolutePath();
         LOG.debug("Input file : " + fileAbsolutePath);
@@ -72,8 +72,8 @@ public class GOST3410DigitalSignature {
             LOG.error(errorMsg);
             throw new IOException(errorMsg);
         }
-        boolean verification = verifySignature(msg, signature, Q);
-        LOG.debug("Signature : " + signature);
+        boolean verification = verifySignature(msg, signature, publicKey);
+        LOG.debug("Signature : " + HexUtils.toHexString(signature));
         LOG.debug("Signature is valid : " + verification);
         LOG.debug("-verifySignatureForFile");
         return verification;
@@ -82,7 +82,7 @@ public class GOST3410DigitalSignature {
     /**
      * Генерация подписи:
      * <p>
-     * 1 Вычислить хеш сообщения M: H=hash(M). На этом шаге используется хеш-функция Стрибог, о которой я уже писал на хабре;
+     * 1 Вычислить хеш сообщения M: H=hash(M). На этом шаге используется хеш-функция Стрибог;
      * 2 Вычислить целое число α, двоичным представление которого является H;
      * 3 Определить e=α mod n, если e=0, задать e=1;
      * 4 Сгенерировать случайное число k, удовлетворяющее условию 0<k<n;
@@ -94,13 +94,13 @@ public class GOST3410DigitalSignature {
      * @param msg Сообщение, которое необходимо подписать
      * @return Сгенерированная подпись
      */
-    public String generateSignature(byte[] msg, BigInteger d) {
+    public static byte[] generateSignature(byte[] msg, PrivateKey privateKey) throws NoSuchAlgorithmException {
 
         LOG.debug("+generateSignature");
 
         // 1 Вычислить хеш сообщения M: H=hash(M).
         byte[] hash = GOST3411HashStribog.stribog256BigDigest(msg);
-        LOG.debug("hash : " + convertByteArrayToHexString(hash));
+        LOG.debug("hash : " + HexUtils.toHexString(hash));
 
         //  2 Вычислить целое число α, двоичным представление которого является H;
         BigInteger alpha = new BigInteger(hash); // тут никаких проблем - сконвертировали массив байт в целое число
@@ -114,6 +114,7 @@ public class GOST3410DigitalSignature {
         }
         LOG.debug("e : " + e);
 
+        BigInteger d = new BigInteger(privateKey.getEncoded());
         BigInteger k;
         BigInteger r;
         BigInteger s;
@@ -149,12 +150,12 @@ public class GOST3410DigitalSignature {
         System.arraycopy(rByteArray, 0, result, 0, rByteArray.length);
         System.arraycopy(sByteArray, 0, result, rByteArray.length, sByteArray.length);
 
-        LOG.debug("rByteArray : " + convertByteArrayToHexString(rByteArray));
-        LOG.debug("sByteArray : " + convertByteArrayToHexString(sByteArray));
-        LOG.debug("result : " + convertByteArrayToHexString(result));
+        LOG.debug("rByteArray : " + HexUtils.toHexString(rByteArray));
+        LOG.debug("sByteArray : " + HexUtils.toHexString(sByteArray));
+        LOG.debug("result : " + HexUtils.toHexString(result));
 
         LOG.debug("-generateSignature");
-        return convertByteArrayToHexString(result);
+        return result;
     }
 
     /**
@@ -171,14 +172,12 @@ public class GOST3410DigitalSignature {
      * 8 Определить R = xc mod n, где xc — x-координата точки C;
      * 9 Если R=r, то подпись верна. В противном случае подпись не принимается.
      *
-     * @param msg          Сообщение
-     * @param signatureStr Подпись
+     * @param msg       Сообщение
+     * @param signature Подпись
      * @return Результат проверки подписи: true - если подпись верна, иначе - false.
      */
-    public boolean verifySignature(byte[] msg, String signatureStr, ECPoint Q) {
+    public static boolean verifySignature(byte[] msg, byte[] signature, PublicKey publicKey) throws IOException, NoSuchAlgorithmException {
         LOG.debug("+verifySignature");
-
-        byte[] signature = convertHexStringToByteArray(signatureStr);
 
         // 1 По полученной подписи восстановить числа r и s.
         byte[] rByteArray = new byte[signature.length / 2];
@@ -198,9 +197,9 @@ public class GOST3410DigitalSignature {
         BigInteger r = new BigInteger(rByteArray);
         BigInteger s = new BigInteger(sByteArray);
 
-        LOG.debug("signByteArray : " + convertByteArrayToHexString(signature));
-        LOG.debug("rByteArray : " + convertByteArrayToHexString(rByteArray));
-        LOG.debug("sByteArray : " + convertByteArrayToHexString(sByteArray));
+        LOG.debug("signByteArray : " + HexUtils.toHexString(signature));
+        LOG.debug("rByteArray : " + HexUtils.toHexString(rByteArray));
+        LOG.debug("sByteArray : " + HexUtils.toHexString(sByteArray));
         LOG.debug("r : " + new BigInteger(rByteArray));
         LOG.debug("s : " + new BigInteger(sByteArray));
 
@@ -213,7 +212,7 @@ public class GOST3410DigitalSignature {
             // 2 Вычислить хеш сообщения M: H=hash(M).
             byte[] hash = GOST3411HashStribog.stribog256BigDigest(msg);
 
-            LOG.debug("hash : " + convertByteArrayToHexString(hash));
+            LOG.debug("hash : " + HexUtils.toHexString(hash));
 
             // 3 Вычислить целое число α, двоичным представление которого является H;
             BigInteger alpha = new BigInteger(hash); // тут никаких проблем - сконвертировали массив байт в целое число
@@ -235,6 +234,8 @@ public class GOST3410DigitalSignature {
             LOG.debug("z2 : " + z2);
 
             // 7 Вычислить точку эллиптической кривой C = z1*G + z2*Q;
+            ECPublicKey key = (ECPublicKey) publicKey;
+            ECPoint Q = key.getQ();
             ECPoint G = ecSpec.getG();
             ECPoint C = ((G.multiply(z1)).add(Q.multiply(z2))).normalize();
 
@@ -263,42 +264,7 @@ public class GOST3410DigitalSignature {
         return result;
     }
 
-    public static byte[] convertHexStringToByteArray(String hex) {
-        int len = hex.length();
-        byte[] result = new byte[len / 2];
-        for (int i = 0; i < len; i += 2) {
-            result[i / 2] = (byte) ((Character.digit(hex.charAt(i), 16) << 4)
-                    + Character.digit(hex.charAt(i + 1), 16));
-        }
-        return result;
-    }
-
-    public String convertByteArrayToHexString(byte[] digest) {
-        StringBuilder stringBuilder = new StringBuilder();
-        for (byte b : digest) {
-            int iv = (int) b & 0xFF;
-            if (iv < 0x10) {
-                stringBuilder.append('0');
-            }
-            stringBuilder.append(Integer.toHexString(iv).toUpperCase());
-        }
-        return stringBuilder.toString();
-    }
-
-    public BigInteger generatePrivateKey() {
-        BigInteger q = curve.getOrder();
-        BigInteger d;
-        do {
-            d = new BigInteger(q.bitLength(), new SecureRandom());
-        } while (d.signum() != 1 || (d.compareTo(q) > 0)); // необходимо получить 0 < d < q
-        return d;
-    }
-
-    public ECPoint generatePublicKey(BigInteger d) {
-        return ((ecSpec.getG()).multiply(d)).normalize();
-    }
-
-    public byte[] removeLeadingZeros(byte[] array) {
+    public static byte[] removeLeadingZeros(byte[] array) {
         byte[] arrayCopy = Arrays.copyOf(array, array.length);
         if (arrayCopy[0] == 0) {
             byte[] tmp = new byte[arrayCopy.length - 1];
@@ -308,7 +274,7 @@ public class GOST3410DigitalSignature {
         return arrayCopy;
     }
 
-    public byte[] addLeadingZeros(byte[] array) {
+    public static byte[] addLeadingZeros(byte[] array) {
         byte[] arrayCopy = new byte[array.length + 1];
         arrayCopy[0] = 0x00;
         System.arraycopy(array, 0, arrayCopy, 1, array.length);
@@ -321,5 +287,27 @@ public class GOST3410DigitalSignature {
 
     public ECCurve getCurve() {
         return curve;
+    }
+
+    public static KeyPair generateKeyPair() throws NoSuchProviderException,
+            NoSuchAlgorithmException, InvalidAlgorithmParameterException {
+
+        BigInteger privateKey = generatePrivateKey();
+        ECPoint publicKey = generatePublicKey(privateKey);
+
+        return new KeyPair(new PublicKeyEDS(publicKey), new PrivateKeyEDS(privateKey));
+    }
+
+    private static ECPoint generatePublicKey(BigInteger privateKey) {
+        return ecSpec.getG().multiply(privateKey).normalize();
+    }
+
+    private static BigInteger generatePrivateKey() {
+        BigInteger q = curve.getOrder();
+        BigInteger privateKey;
+        do {
+            privateKey = new BigInteger(q.bitLength(), new SecureRandom());
+        } while (privateKey.signum() != 1 || (privateKey.compareTo(q) > 0)); // необходимо получить 0 < d < q
+        return privateKey;
     }
 }

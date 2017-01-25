@@ -3,6 +3,7 @@ package com.crypto;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.security.NoSuchAlgorithmException;
 
 import static com.crypto.HexUtils.toHexString;
 
@@ -15,7 +16,7 @@ public final class FileUtils {
 
     }
 
-    public static String generateHash256ForFile(File file) throws IOException {
+    public static String generateHash256ForFile(File file) throws IOException, NoSuchAlgorithmException {
         byte[] msg = new byte[(int) file.length()];
         FileInputStream fileInputStream = new FileInputStream(file);
         int readResult = fileInputStream.read(msg);

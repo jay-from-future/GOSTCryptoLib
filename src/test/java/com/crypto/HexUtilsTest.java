@@ -1,13 +1,7 @@
 package com.crypto;
 
-import org.bouncycastle.util.encoders.Hex;
 import org.junit.Test;
 
-import static org.junit.Assert.*;
-
-/**
- * @author Grigorii Liullin.
- */
 public class HexUtilsTest {
 
     @Test(expected = IllegalArgumentException.class)

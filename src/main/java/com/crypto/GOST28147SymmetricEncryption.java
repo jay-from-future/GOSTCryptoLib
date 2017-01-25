@@ -1,6 +1,10 @@
 package com.crypto;
 
+import javax.crypto.SecretKey;
+import javax.crypto.spec.SecretKeySpec;
 import java.io.UnsupportedEncodingException;
+import java.math.BigInteger;
+import java.security.SecureRandom;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -14,6 +18,7 @@ public class GOST28147SymmetricEncryption {
     private static final Logger LOG = Logger.getLogger(GOST28147SymmetricEncryption.class.getName());
 
     private static final int BLOCK_SIZE = 8;
+    public static final String GOST_28147 = "GOST28147";
     private int[] workingKey = null;
 
     // these are the S-boxes given in Applied Cryptography 2nd Ed., p. 333
@@ -158,8 +163,8 @@ public class GOST28147SymmetricEncryption {
     }
 
     private int encryptBlock(byte[] in, int inOff, byte[] out, int outOff) {
-        in = extendIfRequired(in, inOff);
-        out = extendIfRequired(out, outOff);
+//        in = extendIfRequired(in, inOff);
+//        out = extendOutIfRequired(out, outOff);
         checkBlock(in, inOff, out, outOff);
         GOST28147Func(workingKey, in, inOff, out, outOff, true);
         return BLOCK_SIZE;
@@ -170,21 +175,30 @@ public class GOST28147SymmetricEncryption {
                              byte[] out,
                              int outOff) {
 
-        in = extendIfRequired(in, inOff);
-        out = extendIfRequired(out, outOff);
+//        in = extendIfRequired(in, inOff);
+//        out = extendIfRequired(out, outOff);
         checkBlock(in, inOff, out, outOff);
         GOST28147Func(workingKey, in, inOff, out, outOff, false);
         return BLOCK_SIZE;
     }
 
-    private byte[] extendIfRequired(byte[] in, int inOff) {
-        if ((inOff + BLOCK_SIZE) > in.length) {
-            byte[] newIn = new byte[inOff + BLOCK_SIZE];
-            System.arraycopy(in, 0, newIn, 0, in.length);
-            return newIn;
-        }
-        return in;
-    }
+//    private byte[] extendIfRequired(byte[] in, int inOff) {
+//        if ((inOff + BLOCK_SIZE) > in.length) {
+//            byte[] newIn = new byte[inOff + BLOCK_SIZE];
+//            System.arraycopy(in, 0, newIn, 0, in.length);
+//            return newIn;
+//        }
+//        return in;
+//    }
+//
+//    private byte[] extendOutIfRequired(byte[] in, int inOff) {
+//        if ((inOff + BLOCK_SIZE) > in.length) {
+//            byte[] newIn = new byte[inOff + BLOCK_SIZE];
+//            System.arraycopy(in, 0, newIn, 0, in.length);
+//            return newIn;
+//        }
+//        return in;
+//    }
 
     private void checkBlock(byte[] in, int inOff, byte[] out, int outOff) {
         if (workingKey == null) {
@@ -306,15 +320,6 @@ public class GOST28147SymmetricEncryption {
         out[outOff] = (byte) num;
     }
 
-    public static byte[] getBytesArrayFromText(String text) throws UnsupportedEncodingException {
-        int blocksCount;
-        byte[] strBytes = text.getBytes("UTF-8");
-        blocksCount = strBytes.length % 8 == 0 ? strBytes.length / 8 : strBytes.length / 8 + 1;
-        byte[] bytesArray = new byte[blocksCount * 8];
-        System.arraycopy(strBytes, 0, bytesArray, 0, strBytes.length);
-        return bytesArray;
-    }
-
     /**
      * Return the S-Box associated with SBoxName
      *
@@ -335,6 +340,18 @@ public class GOST28147SymmetricEncryption {
             throw new IllegalArgumentException("Unknown S-Box - possible types: "
                     + "\"E-Test\", \"E-A\", \"E-B\", \"E-C\", \"E-D\", \"D-Test\", \"D-A\".");
         }
+    }
+
+    /**
+     * @param keyLength
+     * @return
+     */
+    public static SecretKey generateKey(int keyLength) {
+        byte[] key;
+        do {
+            key = new BigInteger(keyLength, new SecureRandom()).toByteArray();
+        } while (key.length != keyLength / 8);
+        return new SecretKeySpec(key, GOST_28147);
     }
 
 }

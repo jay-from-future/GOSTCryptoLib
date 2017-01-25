@@ -21,13 +21,8 @@ public class GOST3411HashStribog {
         }
     }
 
-    public static byte[] stribog256Digest(byte[] message) {
-        MessageDigest md = null;
-        try {
-            md = MessageDigest.getInstance("Stribog256");
-        } catch (NoSuchAlgorithmException e) {
-            e.printStackTrace();
-        }
+    public static byte[] stribog256Digest(byte[] message) throws NoSuchAlgorithmException {
+        MessageDigest md = MessageDigest.getInstance("Stribog256");
         byte[] digest = new byte[0];
         if (md != null) {
             digest = md.digest(message);
@@ -35,21 +30,8 @@ public class GOST3411HashStribog {
         return digest;
     }
 
-//    public static String stribog256Digest(String message) {
-//        return stribog256Digest(message.getBytes());
-//    }
-//
-//    public static String stribog256BigDigest(String message) {
-//        return stribog256Digest(message.getBytes());
-//    }
-
-    public static byte[] stribog256BigDigest(byte[] message) {
-        MessageDigest md = null;
-        try {
-            md = MessageDigest.getInstance("StribogB256");
-        } catch (NoSuchAlgorithmException e) {
-            e.printStackTrace();
-        }
+    public static byte[] stribog256BigDigest(byte[] message) throws NoSuchAlgorithmException {
+        MessageDigest md = MessageDigest.getInstance("StribogB256");
         byte[] digest = null;
         if (md != null) {
             digest = md.digest(reverse(message));
@@ -57,13 +39,8 @@ public class GOST3411HashStribog {
         return digest;
     }
 
-    public static byte[] stribog512Digest(byte[] message) {
-        MessageDigest md = null;
-        try {
-            md = MessageDigest.getInstance("Stribog512");
-        } catch (NoSuchAlgorithmException e) {
-            e.printStackTrace();
-        }
+    public static byte[] stribog512Digest(byte[] message) throws NoSuchAlgorithmException {
+        MessageDigest md = MessageDigest.getInstance("Stribog512");
         byte[] digest = new byte[0];
         if (md != null) {
             digest = md.digest(message);
@@ -71,31 +48,13 @@ public class GOST3411HashStribog {
         return digest;
     }
 
-    public static byte[] stribog512BigDigest(byte[] message) {
-        MessageDigest md = null;
-        try {
-            md = MessageDigest.getInstance("StribogB512");
-        } catch (NoSuchAlgorithmException e) {
-            e.printStackTrace();
-        }
+    public static byte[] stribog512BigDigest(byte[] message) throws NoSuchAlgorithmException {
+        MessageDigest md = MessageDigest.getInstance("StribogB512");
         byte[] digest = new byte[0];
         if (md != null) {
             digest = md.digest(reverse(message));
         }
         return digest;
-    }
-
-
-    private static String getHex(byte[] digest) {
-        StringBuilder stringBuilder = new StringBuilder();
-        for (byte b : digest) {
-            int iv = (int) b & 0xFF;
-            if (iv < 0x10) {
-                stringBuilder.append('0');
-            }
-            stringBuilder.append(Integer.toHexString(iv).toUpperCase());
-        }
-        return stringBuilder.toString();
     }
 
     private static byte[] reverse(byte[] ba) {
@@ -104,17 +63,5 @@ public class GOST3411HashStribog {
             result[ba.length - 1 - i] = ba[i];
         }
         return result;
-    }
-
-    public static String generateHash256ForFile(File file) throws IOException {
-        byte[] msg = new byte[(int) file.length()];
-        FileInputStream fileInputStream = new FileInputStream(file);
-        int readResult = fileInputStream.read(msg);
-        if (readResult < 0) {
-            String errorMsg = "Cannot read from input file : " + file.getAbsolutePath();
-            throw new IOException(errorMsg);
-        }
-        byte[] hash = GOST3411HashStribog.stribog256BigDigest(msg);
-        return toHexString(hash);
     }
 }
