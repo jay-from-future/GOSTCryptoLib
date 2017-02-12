@@ -164,7 +164,6 @@ public class GOST28147SymmetricEncryption {
             System.arraycopy(dataSize.array(), 0, dataWithSize, 0, 4);
             System.arraycopy(data, 0, dataWithSize, 4, data.length);
 
-            result = new byte[dataWithSize.length];
             int padding = dataWithSize.length % 8;
             if (padding != 0) {
                 int extendedDataLength = dataWithSize.length + (8 - padding);
@@ -172,7 +171,7 @@ public class GOST28147SymmetricEncryption {
                 System.arraycopy(dataWithSize, 0, extendedData, 0, dataWithSize.length);
                 result = encryptMessageCBC(extendedData);
             } else {
-                result = decryptMessageCBC(dataWithSize);
+                result = encryptMessageCBC(dataWithSize);
             }
         } else {
             byte[] tmp_result = decryptMessageCBC(data);
