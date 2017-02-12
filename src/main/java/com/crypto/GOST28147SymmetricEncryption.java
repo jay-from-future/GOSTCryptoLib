@@ -1,9 +1,16 @@
 package com.crypto;
 
+import org.bouncycastle.crypto.BufferedBlockCipher;
+import org.bouncycastle.crypto.InvalidCipherTextException;
+import org.bouncycastle.crypto.engines.GOST28147Engine;
+import org.bouncycastle.crypto.modes.CBCBlockCipher;
+import org.bouncycastle.crypto.paddings.PaddedBufferedBlockCipher;
+import org.bouncycastle.crypto.params.KeyParameter;
+
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
-import java.io.UnsupportedEncodingException;
 import java.math.BigInteger;
+import java.nio.ByteBuffer;
 import java.security.SecureRandom;
 import java.util.HashMap;
 import java.util.Map;
@@ -20,6 +27,7 @@ public class GOST28147SymmetricEncryption {
     private static final int BLOCK_SIZE = 8;
     public static final String GOST_28147 = "GOST28147";
     private int[] workingKey = null;
+    private byte[] key = null;
 
     // these are the S-boxes given in Applied Cryptography 2nd Ed., p. 333
     // This is default S-box!
@@ -142,9 +150,69 @@ public class GOST28147SymmetricEncryption {
         if (sBox != null && !Objects.equals(sBox, "DEFAULT")) {
             System.arraycopy(getSBox(sBox), 0, this.S, 0, getSBox(sBox).length);
         }
+        this.key = key;
         workingKey = generateWorkingKey(key);
     }
 
+    public byte[] processCipheringCBC(boolean forEncrypting, byte[] data) throws InvalidCipherTextException {
+        byte[] result;
+        if (forEncrypting) {
+            // define data size in fist 4 bytes of data
+            ByteBuffer dataSize = ByteBuffer.allocate(4);
+            dataSize.putInt(data.length);
+            byte[] dataWithSize = new byte[data.length + 4];
+            System.arraycopy(dataSize.array(), 0, dataWithSize, 0, 4);
+            System.arraycopy(data, 0, dataWithSize, 4, data.length);
+
+            result = new byte[dataWithSize.length];
+            int padding = dataWithSize.length % 8;
+            if (padding != 0) {
+                int extendedDataLength = dataWithSize.length + (8 - padding);
+                byte[] extendedData = new byte[extendedDataLength];
+                System.arraycopy(dataWithSize, 0, extendedData, 0, dataWithSize.length);
+                result = encryptMessageCBC(extendedData);
+            } else {
+                result = decryptMessageCBC(dataWithSize);
+            }
+        } else {
+            byte[] tmp_result = decryptMessageCBC(data);
+            byte[] sizeBytes = new byte[4];
+            System.arraycopy(tmp_result, 0, sizeBytes, 0, 4);
+            int size = ByteBuffer.wrap(sizeBytes).getInt();
+            result = new byte[size];
+            System.arraycopy(tmp_result, 4, result, 0, size);
+        }
+        return result;
+
+    }
+
+    private byte[] encryptMessageCBC(byte[] src) throws InvalidCipherTextException {
+
+        GOST28147Engine blockCipher = new GOST28147Engine();
+        CBCBlockCipher cbcCipher = new CBCBlockCipher(blockCipher);
+        BufferedBlockCipher cipher = new PaddedBufferedBlockCipher(cbcCipher);
+
+        cipher.init(true, new KeyParameter(key));
+
+        byte[] encryptedData = new byte[cipher.getOutputSize(src.length)];
+        int bytes = cipher.processBytes(src, 0, src.length, encryptedData, 0);
+        cipher.doFinal(encryptedData, bytes);
+        return encryptedData;
+    }
+
+    private byte[] decryptMessageCBC(byte[] src) throws InvalidCipherTextException {
+
+        GOST28147Engine blockCipher = new GOST28147Engine();
+        CBCBlockCipher cbcCipher = new CBCBlockCipher(blockCipher);
+        BufferedBlockCipher cipher = new PaddedBufferedBlockCipher(cbcCipher);
+
+        cipher.init(false, new KeyParameter(key));
+
+        byte[] dencryptedData = new byte[cipher.getOutputSize(src.length)];
+        int bytes = cipher.processBytes(src, 0, src.length, dencryptedData, 0);
+        cipher.doFinal(dencryptedData, bytes);
+        return dencryptedData;
+    }
 
     public void encryptMessage(byte[] src, byte[] out) {
         int offset = 0;
